@@ -48,7 +48,9 @@ base/
     servicemonitors/   # Unbound / dnsdist / Kea DHCP 用 ServiceMonitor
     prometheusrules/   # Unbound アラートルール
 overlays/
-  poc/            # PoC環境overlay (MetalLBプール名パッチ、namespace強制)
+  poc/            # PoC環境overlay (MetalLBプール名パッチ、namespace強制、環境固有値)
+    metallb-config/  # MetalLB IPAddressPool パッチ (IP レンジ上書き)
+    configs/         # Unbound forward-zones.conf 上書き (Route 53 Resolver 転送)
 test/             # テストスクリプト (test-dns/dhcp/scale/all) + テストPod
 scripts/          # deploy.sh, teardown.sh
 ```
@@ -77,7 +79,7 @@ make prometheus-forward # Prometheus port-forward (localhost:9090)
 MetalLBは段階的デプロイが必要（CRD→controller→speaker→IPAddressPool）:
 1. `base/metallb/namespace.yaml` を先に apply
 2. Helm chartを `--server-side` で apply → controller/speaker 待ち
-3. `base/metallb/config/` のCRリソースをapply
+3. `overlays/<env>/metallb-config/` のCRリソースをapply（overlay で IP レンジを上書き）
 4. メインリソース（overlay）をapply
 5. Monitoring stack (kube-prometheus-stack) を `--server-side` で2段階 apply
    - Phase 1: CRD を apply → `Established` を待つ（PrometheusRule 等の CR を作るために必須）
@@ -99,7 +101,10 @@ MetalLBは段階的デプロイが必要（CRD→controller→speaker→IPAddres
 
 - MetalLBリソースは `metallb-system` namespace で別管理（overlayのnamespace変換対象外）
 - Helm chartレンダリングリソースにはKustomize namespace変換が効かない → overlayでJSONパッチで強制注入
-- IPレンジ: `base/metallb/config/ip-address-pool.yaml` を環境に合わせて変更
+- 環境固有値は overlay で管理（base はデフォルト/プレースホルダー値を持つ）:
+  - MetalLB IP レンジ: `overlays/<env>/metallb-config/ip-address-pool-patch.yaml`
+  - Unbound forward-zones: `overlays/<env>/configs/forward-zones.conf`
+  - DHCP サブネット/DNS サーバーIP: `overlays/<env>/patches/kea-configmap.yaml`
 - Kea values: `base/kea-dhcp/values.yaml` の `domain-name-servers` に dnsdist LB IP を設定
 - dnsdist は `maintenance()` Lua コールバックで10秒ごとに headless Service を再解決し、バックエンドを自動同期
 - `kustomize build` には `--enable-helm` フラグが必須

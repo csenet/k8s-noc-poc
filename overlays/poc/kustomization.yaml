@@ -3,6 +3,14 @@ kind: Kustomization
 
 namespace: noc-poc
 
+configMapGenerator:
+  - name: unbound-config
+    behavior: merge
+    files:
+      - configs/forward-zones.conf
+    options:
+      disableNameSuffixHash: true
+
 resources:
   - ../../base/namespace
   - ../../base/redis

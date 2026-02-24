@@ -22,7 +22,7 @@ metallb:
 
 ## Step 2: Apply MetalLB IPAddressPool + L2Advertisement (requires CRDs from step 1)
 metallb-config:
-	kubectl apply -k base/metallb/config
+	kubectl apply -k overlays/$(OVERLAY)/metallb-config
 
 ## Step 3: Deploy monitoring stack (kube-prometheus-stack)
 ## Two-phase apply: CRDs first, then full stack (CRDs must be Established before CRs can be created)
@@ -112,7 +112,7 @@ prometheus-forward:
 
 ## Remove MetalLB completely
 metallb-clean:
-	kubectl delete -k base/metallb/config --ignore-not-found
+	kubectl delete -k overlays/$(OVERLAY)/metallb-config --ignore-not-found
 	kustomize build base/metallb $(KUSTOMIZE_FLAGS) | kubectl delete -f - --ignore-not-found
 
 ## Remove monitoring stack
