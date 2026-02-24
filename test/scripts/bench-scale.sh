@@ -2,15 +2,15 @@
 set -euo pipefail
 
 NAMESPACE="noc-poc"
-UNBOUND_IP="${UNBOUND_IP:-$(kubectl -n "${NAMESPACE}" get svc unbound -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")}"
+DNS_IP="${DNS_IP:-${UNBOUND_IP:-$(kubectl -n "${NAMESPACE}" get svc dnsdist -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")}}"
 QUERYFILE="${QUERYFILE:-test/queryfile.txt}"
 DURATION="${DURATION:-30}"
 CLIENTS="${CLIENTS:-10}"
 THREADS="${THREADS:-10}"
 REPLICA_COUNTS="${*:-1 2 3}"
 
-if [ -z "${UNBOUND_IP}" ]; then
-    echo "ERROR: Could not determine Unbound LoadBalancer IP."
+if [ -z "${DNS_IP}" ]; then
+    echo "ERROR: Could not determine dnsdist LoadBalancer IP."
     exit 1
 fi
 
@@ -20,9 +20,9 @@ if ! command -v dnsperf &>/dev/null; then
 fi
 
 echo "============================================"
-echo " Unbound Scale Benchmark"
+echo " DNS Scale Benchmark (via dnsdist)"
 echo "============================================"
-echo "  Server:    ${UNBOUND_IP}:53"
+echo "  Server:    ${DNS_IP}:53"
 echo "  Query file: ${QUERYFILE}"
 echo "  Duration:  ${DURATION}s per run"
 echo "  Clients:   ${CLIENTS}"
@@ -37,6 +37,8 @@ for REPLICAS in ${REPLICA_COUNTS}; do
     echo ">>> Scaling Unbound to ${REPLICAS} replica(s)..."
     kubectl -n "${NAMESPACE}" scale deployment/unbound --replicas="${REPLICAS}"
     kubectl -n "${NAMESPACE}" rollout status deployment/unbound --timeout=120s
+    echo ">>> Waiting for dnsdist to sync backends..."
+    sleep 12
     echo ""
 
     # Show pod distribution
@@ -50,12 +52,12 @@ for REPLICAS in ${REPLICA_COUNTS}; do
 
     # Warm up (short run to populate cache)
     echo ">>> Warming up (5s)..."
-    dnsperf -s "${UNBOUND_IP}" -d "${QUERYFILE}" -c "${CLIENTS}" -T "${THREADS}" -l 5 > /dev/null 2>&1 || true
+    dnsperf -s "${DNS_IP}" -d "${QUERYFILE}" -c "${CLIENTS}" -T "${THREADS}" -l 5 > /dev/null 2>&1 || true
     echo ""
 
     # Actual benchmark
     echo ">>> Running benchmark (${DURATION}s) with ${REPLICAS} replica(s)..."
-    OUTPUT=$(dnsperf -s "${UNBOUND_IP}" -d "${QUERYFILE}" -c "${CLIENTS}" -T "${THREADS}" -l "${DURATION}" 2>&1)
+    OUTPUT=$(dnsperf -s "${DNS_IP}" -d "${QUERYFILE}" -c "${CLIENTS}" -T "${THREADS}" -l "${DURATION}" 2>&1)
 
     # Extract metrics
     QPS=$(echo "${OUTPUT}" | grep "Queries per second" | awk '{print $NF}')

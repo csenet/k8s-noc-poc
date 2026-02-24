@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: unbound
+  name: unbound-headless
   labels:
     app: unbound
     app.kubernetes.io/part-of: noc-poc
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: unbound
   ports:

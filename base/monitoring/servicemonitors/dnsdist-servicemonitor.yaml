@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dnsdist
+  namespace: monitoring
+  labels:
+    app: dnsdist
+spec:
+  namespaceSelector:
+    matchNames:
+      - noc-poc
+  selector:
+    matchLabels:
+      app: dnsdist
+  endpoints:
+    - port: metrics
+      interval: 15s

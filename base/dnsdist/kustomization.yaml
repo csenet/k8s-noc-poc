@@ -4,14 +4,12 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
-  - service-headless.yaml
   - service-metrics.yaml
 
 configMapGenerator:
-  - name: unbound-config
+  - name: dnsdist-config
     files:
-      - configs/unbound.conf
-      - configs/forward-zones.conf
-      - configs/cachedb.conf
+      - configs/entrypoint.sh
+      - configs/dnsdist.conf
     options:
       disableNameSuffixHash: true

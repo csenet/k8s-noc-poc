@@ -3,20 +3,22 @@ set -euo pipefail
 
 NAMESPACE="noc-poc"
 REPLICAS="${1:-3}"
-UNBOUND_IP="${UNBOUND_IP:-$(kubectl -n "${NAMESPACE}" get svc unbound -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")}"
+DNS_IP="${DNS_IP:-${UNBOUND_IP:-$(kubectl -n "${NAMESPACE}" get svc dnsdist -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")}}"
 
-if [ -z "${UNBOUND_IP}" ]; then
-    echo "ERROR: Could not determine Unbound LoadBalancer IP."
+if [ -z "${DNS_IP}" ]; then
+    echo "ERROR: Could not determine dnsdist LoadBalancer IP."
     exit 1
 fi
 
-echo "=== Scale Test (Unbound @ ${UNBOUND_IP}, replicas: ${REPLICAS}) ==="
+echo "=== Scale Test (dnsdist @ ${DNS_IP}, replicas: ${REPLICAS}) ==="
 
 # Scale up
 echo "[1/5] Scaling Unbound to ${REPLICAS} replicas..."
 kubectl -n "${NAMESPACE}" scale deployment/unbound --replicas="${REPLICAS}"
 kubectl -n "${NAMESPACE}" wait --for=condition=available deployment/unbound --timeout=120s
 echo "  All ${REPLICAS} replicas ready."
+echo "  Waiting for dnsdist to sync backends (maintenance interval)..."
+sleep 12
 
 # Show pods
 echo ""
@@ -41,7 +43,7 @@ DOMAINS=(
 PASS=0
 FAIL=0
 for domain in "${DOMAINS[@]}"; do
-    if dig @"${UNBOUND_IP}" "${domain}" +short +time=3 > /dev/null 2>&1; then
+    if dig @"${DNS_IP}" "${domain}" +short +time=3 > /dev/null 2>&1; then
         PASS=$((PASS + 1))
     else
         FAIL=$((FAIL + 1))

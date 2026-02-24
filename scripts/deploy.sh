@@ -19,40 +19,45 @@ kubectl -n metallb-system wait --for=condition=ready pod -l app.kubernetes.io/co
 echo "[2/8] Applying MetalLB address pool config..."
 kubectl apply -k base/metallb/config
 
-# Step 3: Main resources
-echo "[3/8] Building and applying manifests..."
+# Step 3: TLS certificate for dnsdist DoT
+echo "[3/9] Generating TLS certificate for dnsdist DoT..."
+"$(dirname "$0")/generate-tls-cert.sh"
+
+# Step 4: Main resources
+echo "[4/9] Building and applying manifests..."
 kustomize build "overlays/${OVERLAY}" --enable-helm | kubectl apply -f -
 
-# Wait for Redis + Unbound
-echo "[4/8] Waiting for Redis & Unbound..."
+# Wait for Redis + Unbound + dnsdist
+echo "[5/9] Waiting for Redis, Unbound & dnsdist..."
 kubectl -n "${NAMESPACE}" wait --for=condition=available deployment/redis --timeout=120s
 kubectl -n "${NAMESPACE}" wait --for=condition=available deployment/unbound --timeout=120s
+kubectl -n "${NAMESPACE}" wait --for=condition=available deployment/dnsdist --timeout=120s
 
-# Step 5: Monitoring stack — two-phase apply (CRDs must be Established before CRs)
-echo "[5/8] Deploying monitoring stack (phase 1: CRDs)..."
+# Step 6: Monitoring stack — two-phase apply (CRDs must be Established before CRs)
+echo "[6/9] Deploying monitoring stack (phase 1: CRDs)..."
 kustomize build base/monitoring --enable-helm | kubectl apply --server-side --force-conflicts -f - 2>&1 | grep -v 'ensure CRDs' || true
 echo "  Waiting for CRDs to be established..."
 kubectl wait --for=condition=Established crd/prometheusrules.monitoring.coreos.com --timeout=60s
 kubectl wait --for=condition=Established crd/servicemonitors.monitoring.coreos.com --timeout=60s
 kubectl wait --for=condition=Established crd/prometheuses.monitoring.coreos.com --timeout=60s
 
-echo "[6/8] Deploying monitoring stack (phase 2: full stack)..."
+echo "[7/9] Deploying monitoring stack (phase 2: full stack)..."
 kustomize build base/monitoring --enable-helm | kubectl apply --server-side --force-conflicts -f -
 
 # Wait for monitoring components
-echo "[7/8] Waiting for Prometheus Operator & Grafana..."
+echo "[8/9] Waiting for Prometheus Operator & Grafana..."
 kubectl -n monitoring wait --for=condition=available deployment/kube-prometheus-stack-operator --timeout=180s
 kubectl -n monitoring wait --for=condition=available deployment/kube-prometheus-stack-grafana --timeout=180s
 
-# Step 8: Show Unbound LB IP + Grafana LB IP
-echo "[8/8] Fetching LoadBalancer IPs..."
-UNBOUND_IP=""
+# Step 9: Show dnsdist LB IP + Grafana LB IP
+echo "[9/9] Fetching LoadBalancer IPs..."
+DNS_IP=""
 for i in $(seq 1 30); do
-    UNBOUND_IP=$(kubectl -n "${NAMESPACE}" get svc unbound -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-    if [ -n "${UNBOUND_IP}" ]; then
+    DNS_IP=$(kubectl -n "${NAMESPACE}" get svc dnsdist -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    if [ -n "${DNS_IP}" ]; then
         break
     fi
-    echo "  Waiting for Unbound LoadBalancer IP... (${i}/30)"
+    echo "  Waiting for dnsdist LoadBalancer IP... (${i}/30)"
     sleep 2
 done
 
@@ -68,11 +73,11 @@ done
 
 echo ""
 echo "=== Deployment Complete ==="
-if [ -n "${UNBOUND_IP}" ]; then
-    echo "Unbound DNS IP: ${UNBOUND_IP}"
-    echo "  NOTE: Update base/kea-dhcp/values.yaml domain-name-servers with: ${UNBOUND_IP}"
+if [ -n "${DNS_IP}" ]; then
+    echo "DNS (dnsdist) IP: ${DNS_IP}"
+    echo "  NOTE: Update base/kea-dhcp/values.yaml domain-name-servers with: ${DNS_IP}"
 else
-    echo "Unbound DNS IP: (pending) — run 'make get-unbound-ip' to check later"
+    echo "DNS (dnsdist) IP: (pending) — run 'make get-dns-ip' to check later"
 fi
 
 if [ -n "${GRAFANA_IP}" ]; then

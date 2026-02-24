@@ -37,10 +37,10 @@ run_test "Kea DHCP service exists" \
     "kubectl -n ${NAMESPACE} get svc kea-dhcp -o jsonpath='{.spec.type}'" \
     "LoadBalancer"
 
-# Test 3: Kea config loaded (check logs from statefulset)
+# Test 3: Kea config loaded (check via control socket — logs rotate too fast due to exporter polling)
 run_test "Kea DHCP config loaded" \
-    "kubectl -n ${NAMESPACE} logs statefulset/kea-dhcp -c kea-dhcp --tail=50" \
-    "DHCP4_CONFIG_COMPLETE|DHCP4_STARTED|DHCP4_STARTING"
+    "kubectl -n ${NAMESPACE} exec statefulset/kea-dhcp -c kea-dhcp -- sh -c 'echo \"{\\\"command\\\": \\\"status-get\\\"}\" | socat - UNIX-CONNECT:/run/kea/kea-dhcp4-ctrl.sock'" \
+    "\"result\": 0"
 
 # Test 4: DHCP test from test pod (if exists)
 if kubectl -n "${NAMESPACE}" get pod dhcp-test-pod &>/dev/null; then

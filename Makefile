@@ -3,8 +3,9 @@ NAMESPACE := noc-poc
 KUSTOMIZE_FLAGS := --enable-helm
 
 .PHONY: build deploy clean test test-dns test-dhcp test-scale bench-scale status \
-	metallb metallb-config metallb-clean \
-	monitoring monitoring-status monitoring-clean grafana-forward prometheus-forward
+	metallb metallb-config metallb-clean tls-cert \
+	monitoring monitoring-status monitoring-clean grafana-forward prometheus-forward \
+	get-dns-ip get-unbound-ip
 
 ## Build kustomize output (dry-run)
 build:
@@ -39,17 +40,25 @@ monitoring:
 	@echo "Waiting for Grafana..."
 	kubectl -n monitoring wait --for=condition=available deployment/kube-prometheus-stack-grafana --timeout=180s
 
+## Generate self-signed TLS certificate for dnsdist DoT
+tls-cert:
+	./scripts/generate-tls-cert.sh
+
 ## Deploy to cluster (full)
-deploy: metallb metallb-config
+deploy: metallb metallb-config tls-cert
 	kustomize build overlays/$(OVERLAY) $(KUSTOMIZE_FLAGS) | kubectl apply -f -
 	@echo "Waiting for deployments to be ready..."
 	kubectl -n $(NAMESPACE) wait --for=condition=available deployment/redis --timeout=120s
 	kubectl -n $(NAMESPACE) wait --for=condition=available deployment/unbound --timeout=120s
+	kubectl -n $(NAMESPACE) wait --for=condition=available deployment/dnsdist --timeout=120s
 	$(MAKE) monitoring
 
-## Get Unbound LoadBalancer IP
-get-unbound-ip:
-	@kubectl -n $(NAMESPACE) get svc unbound -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+## Get DNS (dnsdist) LoadBalancer IP
+get-dns-ip:
+	@kubectl -n $(NAMESPACE) get svc dnsdist -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+## Alias for backward compatibility
+get-unbound-ip: get-dns-ip
 
 ## Show status of all resources
 status:

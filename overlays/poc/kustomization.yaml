@@ -7,12 +7,13 @@ resources:
   - ../../base/namespace
   - ../../base/redis
   - ../../base/unbound
+  - ../../base/dnsdist
   - ../../base/mariadb
   - ../../base/kea-dhcp
   - patches/kea-metrics-service.yaml
 
 patches:
-  - path: patches/unbound-service.yaml
+  - path: patches/dnsdist-service.yaml
   - path: patches/kea-service.yaml
   # Kea ConfigMap: override lease-database to use MariaDB
   - path: patches/kea-configmap.yaml

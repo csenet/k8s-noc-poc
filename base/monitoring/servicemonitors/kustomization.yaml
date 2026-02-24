@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - unbound-servicemonitor.yaml
+  - dnsdist-servicemonitor.yaml
   - kea-dhcp-servicemonitor.yaml
