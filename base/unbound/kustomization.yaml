@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - service-metrics.yaml
+
+configMapGenerator:
+  - name: unbound-config
+    files:
+      - configs/unbound.conf
+      - configs/forward-zones.conf
+      - configs/cachedb.conf
+    options:
+      disableNameSuffixHash: true

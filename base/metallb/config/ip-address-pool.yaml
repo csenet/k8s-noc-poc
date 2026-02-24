@@ -1,0 +1,10 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: noc-poc-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    # PoC用のIPレンジ - 環境に合わせて変更してください
+    # OrbStackのノードIP: 192.168.139.2
+    - 192.168.139.50-192.168.139.70

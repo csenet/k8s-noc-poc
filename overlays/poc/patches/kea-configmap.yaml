@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kea-dhcp
+data:
+  kea-dhcp4.conf: |
+    {
+        "Dhcp4": {
+            "lease-database": {
+                "type": "mysql",
+                "name": "kea",
+                "user": "kea",
+                "password": "kea-pass",
+                "host": "mariadb",
+                "port": 3306,
+                "reconnect-wait-time": 3000,
+                "max-reconnect-tries": 3,
+                "on-fail": "stop-retry-exit"
+            },
+            "interfaces-config": {
+                "interfaces": [ "INTERFACE" ],
+                "dhcp-socket-type": "raw"
+            },
+            "valid-lifetime": 4000,
+            "renew-timer": 1000,
+            "rebind-timer": 2000,
+            "reservations-global": true,
+            "reservations-in-subnet": false,
+            "control-socket": {
+                "socket-type": "unix",
+                "socket-name": "/run/kea/kea-dhcp4-ctrl.sock"
+            },
+            "option-data": [
+                {"name": "domain-name-servers", "data": "192.168.139.50"},
+                {"name": "domain-name", "data": "noc.local"}
+            ],
+            "subnet4": [
+                {
+                    "subnet": "192.168.1.0/24",
+                    "pools": [{"pool": "192.168.1.100-192.168.1.200"}],
+                    "option-data": [
+                        {"name": "routers", "data": "192.168.1.1"}
+                    ]
+                }
+            ],
+            "loggers": [{
+                "name": "kea-dhcp4",
+                "output_options": [{"output": "stdout"}],
+                "severity": "INFO"
+            }]
+        }
+    }

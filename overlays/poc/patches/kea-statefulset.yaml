@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kea-dhcp
+spec:
+  template:
+    spec:
+      initContainers:
+        # Override the existing init-kea container to also install mysql client
+        # and copy it to shared volume
+        - name: init-kea
+          command:
+            - sh
+            - -c
+            - |
+              set -ex
+              # Install mariadb-client and copy binary to shared volume
+              apk add --no-cache mariadb-client
+              cp /usr/bin/mariadb /shared-bin/mysql
+              # Original init-kea logic
+              cp /mnt/config-map/* /mnt/kea/
+              echo "Finding interface..."
+              interface=$(route | grep '^default' | grep -o '[^ ]*$')
+              echo "Selected interface $interface"
+              sed -i "s/INTERFACE/${interface}/g" /mnt/kea/kea-dhcp4.conf
+              sed -i "s/INTERFACE/${interface}/g" /mnt/kea/kea-dhcp6.conf
+              sed -i "s/HOSTNAME/${HOSTNAME}/g" /mnt/kea/ha-init.json || true
+              touch /mnt/kea/ha.json
+          volumeMounts:
+            - mountPath: /mnt/kea
+              name: kea-config
+            - mountPath: /mnt/config-map
+              name: kea-configmap
+            - mountPath: /shared-bin
+              name: shared-bin
+      containers:
+        - name: kea-dhcp
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - "while [ ! -S /run/kea/kea-dhcp4-ctrl.sock ]; do sleep 1; done; chmod 0777 /run/kea/kea-dhcp4-ctrl.sock"
+          volumeMounts:
+            - mountPath: /data
+              name: data
+            - mountPath: /config/kea
+              name: kea-config
+            - mountPath: /usr/bin/mysql
+              name: shared-bin
+              subPath: mysql
+            - mountPath: /run/kea
+              name: kea-run
+        - name: kea-exporter
+          image: ghcr.io/mweinelt/kea-exporter:v0.7.0
+          args:
+            - --address
+            - "0.0.0.0"
+            - --port
+            - "9547"
+            - /run/kea/kea-dhcp4-ctrl.sock
+          ports:
+            - containerPort: 9547
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /run/kea
+              name: kea-run
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9547
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9547
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: shared-bin
+          emptyDir: {}
+        - name: kea-run
+          emptyDir: {}

@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: unbound
+  namespace: monitoring
+  labels:
+    app: unbound
+spec:
+  namespaceSelector:
+    matchNames:
+      - noc-poc
+  selector:
+    matchLabels:
+      app: unbound
+  endpoints:
+    - port: metrics
+      interval: 15s

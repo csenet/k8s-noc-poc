@@ -1,0 +1,28 @@
+kea:
+  dhcp4:
+    enabled: true
+    validlifetime: "4000"
+    renewtimer: "1000"
+    rebindtimer: "2000"
+    loglevel: "INFO"
+    options:
+      - name: domain-name-servers
+        data: "192.168.139.50"
+      - name: domain-name
+        data: "noc.local"
+    subnets:
+      - subnet: "192.168.1.0/24"
+        pools:
+          - pool: "192.168.1.100-192.168.1.200"
+        option-data:
+          - name: "routers"
+            data: "192.168.1.1"
+
+service:
+  dhcp:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+
+persistence:
+  enabled: true
+  size: 100Mi

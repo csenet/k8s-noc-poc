@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unbound
+  labels:
+    app: unbound
+    app.kubernetes.io/part-of: noc-poc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unbound
+  template:
+    metadata:
+      labels:
+        app: unbound
+    spec:
+      containers:
+        - name: unbound
+          image: klutchell/unbound:latest
+          args: ["-d", "-c", "/config/unbound.conf"]
+          ports:
+            - containerPort: 53
+              protocol: UDP
+            - containerPort: 53
+              protocol: TCP
+          volumeMounts:
+            - name: unbound-config
+              mountPath: /config/unbound.conf
+              subPath: unbound.conf
+            - name: unbound-config
+              mountPath: /config/forward-zones.conf
+              subPath: forward-zones.conf
+            - name: unbound-config
+              mountPath: /config/cachedb.conf
+              subPath: cachedb.conf
+            - name: unbound-control-socket
+              mountPath: /var/run/unbound
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+        - name: unbound-exporter
+          image: rsprta/unbound_exporter:latest
+          args:
+            - unbound_exporter
+            - -unbound.host
+            - "unix:///var/run/unbound/unbound.ctl"
+            - -unbound.ca
+            - ""
+            - -unbound.cert
+            - ""
+          ports:
+            - containerPort: 9167
+              protocol: TCP
+          volumeMounts:
+            - name: unbound-control-socket
+              mountPath: /var/run/unbound
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9167
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9167
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: unbound-config
+          configMap:
+            name: unbound-config
+        - name: unbound-control-socket
+          emptyDir: {}

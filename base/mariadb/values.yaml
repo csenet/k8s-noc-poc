@@ -1,0 +1,25 @@
+auth:
+  rootPassword: "kea-root-pass"
+  database: "kea"
+  username: "kea"
+  password: "kea-pass"
+
+primary:
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+secondary:
+  replicaCount: 0
+
+networkPolicy:
+  enabled: false
+
+metrics:
+  enabled: false

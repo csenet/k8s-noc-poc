@@ -1,0 +1,13 @@
+# PoC environment subnet override
+# Uncomment and modify to override base subnet configuration for Kea DHCP
+#
+# Example: Override subnet for PoC environment
+# kea:
+#   dhcp4:
+#     subnets:
+#       - subnet: "10.0.0.0/24"
+#         pools:
+#           - pool: "10.0.0.100-10.0.0.200"
+#         option-data:
+#           - name: "routers"
+#             data: "10.0.0.1"

@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kea-db-init
+  labels:
+    app: kea-db-init
+    app.kubernetes.io/part-of: noc-poc
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: kea-db-init
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        # Wait for MariaDB to be ready
+        - name: wait-for-mariadb
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MariaDB..."
+              until nc -z mariadb 3306; do
+                sleep 2
+              done
+              echo "MariaDB is ready!"
+      containers:
+        - name: kea-db-init
+          image: ghcr.io/mglants/kea-dhcp:2.5.8
+          command:
+            - sh
+            - -c
+            - |
+              echo "Initializing Kea database schema..."
+              kea-admin db-init mysql \
+                -u kea \
+                -p kea-pass \
+                -n kea \
+                -h mariadb
+              echo "Database initialization complete."

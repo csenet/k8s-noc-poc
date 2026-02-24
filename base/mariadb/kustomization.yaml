@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - kea-db-init-job.yaml
+
+helmCharts:
+  - name: mariadb
+    repo: https://charts.bitnami.com/bitnami
+    version: 25.0.0
+    releaseName: mariadb
+    namespace: noc-poc
+    valuesFile: values.yaml

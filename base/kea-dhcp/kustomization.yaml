@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+helmCharts:
+  - name: kea-dhcp
+    repo: http://charts.glants.xyz
+    version: 0.7.1
+    releaseName: kea-dhcp
+    namespace: noc-poc
+    valuesFile: values.yaml

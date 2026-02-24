@@ -1,0 +1,38 @@
+# kube-prometheus-stack values for PoC environment
+
+# Grafana
+grafana:
+  image:
+    tag: 12.3.3
+  service:
+    type: LoadBalancer
+  adminPassword: "admin"
+  grafana.ini:
+    feature_toggles:
+      provisioning: true
+      kubernetesDashboards: true
+
+# Prometheus
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors from all namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    # Pick up PrometheusRules from all namespaces (not just release-labeled ones)
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
+    retention: 7d
+
+# Alertmanager
+alertmanager:
+  enabled: true
+
+# Disable components not available on OrbStack
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false

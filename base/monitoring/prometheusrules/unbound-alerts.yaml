@@ -1,0 +1,78 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: unbound-alerts
+  namespace: monitoring
+  labels:
+    app: unbound
+spec:
+  groups:
+    - name: unbound
+      rules:
+        # Exporter scrape target is down
+        - alert: UnboundDown
+          expr: up{job="unbound"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Unbound exporter is down (instance {{ $labels.instance }})"
+            description: "Unbound exporter has been unreachable for 1 minute."
+
+        # SERVFAIL rate exceeds 5% of total responses
+        - alert: UnboundHighSERVFAILRate
+          expr: |
+            (
+              rate(unbound_answer_rcodes_total{rcode="SERVFAIL"}[5m])
+              / on(instance) rate(unbound_total_num_queries_total[5m])
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Unbound SERVFAIL rate is high (instance {{ $labels.instance }})"
+            description: "SERVFAIL rate has exceeded 5% for 5 minutes. Current value: {{ $value | humanizePercentage }}"
+
+        # Average recursion latency exceeds 2 seconds
+        - alert: UnboundSlowRecursion
+          expr: unbound_total_recursion_time_avg_seconds > 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Unbound recursive resolution is slow (instance {{ $labels.instance }})"
+            description: "Average recursion time has exceeded 2s for 5 minutes. Current value: {{ $value | humanizeDuration }}"
+
+        # Request list overflow — incoming queries being dropped
+        - alert: UnboundRequestListOverflow
+          expr: rate(unbound_total_requestlist_exceeded_total[5m]) > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Unbound request list is overflowing (instance {{ $labels.instance }})"
+            description: "Queries are being dropped due to request list overflow."
+
+        # Cache hit rate drops below 50% (potential Redis backend issue)
+        - alert: UnboundLowCacheHitRate
+          expr: |
+            (
+              rate(unbound_total_num_cachehits_total[5m])
+              / on(instance) rate(unbound_total_num_queries_total[5m])
+            ) < 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Unbound cache hit rate is low (instance {{ $labels.instance }})"
+            description: "Cache hit rate has been below 50% for 10 minutes. Possible Redis backend issue. Current value: {{ $value | humanizePercentage }}"
+
+        # No queries received at all (traffic blackhole)
+        - alert: UnboundNoQueries
+          expr: rate(unbound_total_num_queries_total[5m]) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Unbound is receiving no queries (instance {{ $labels.instance }})"
+            description: "No DNS queries have been received for 5 minutes."
