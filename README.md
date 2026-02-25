@@ -183,7 +183,7 @@ spec:
 
 ```
 forward-zone:
-    name: "local.jaws-ug.jp"
+    name: ""
     forward-addr: 10.0.0.2      # Route 53 Resolver Inbound EP — replace with actual IP
     forward-addr: 10.0.0.3      # Route 53 Resolver Inbound EP — replace with actual IP
 ```
